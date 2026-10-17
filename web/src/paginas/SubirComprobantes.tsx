@@ -135,7 +135,10 @@ export default function SubirComprobantes({ token }: { token: string }) {
               </ul>
             )}
             <p className="tenue nota-pequena">
-              Este enlace es solo para {data.razonSocial} y vence el {fechaCorta(data.venceEn)}. Tus archivos solo los ve {data.estudio}.
+              Este enlace es solo para {data.razonSocial} y vence el {fechaCorta(data.venceEn)}. Tus archivos solo los ve {data.estudio}.{" "}
+              <a href="https://github.com/LuisCH57/copiloto-contable/blob/main/docs/privacidad.md" target="_blank" rel="noopener noreferrer">
+                Cómo cuidamos tus datos
+              </a>
             </p>
           </>
         )}

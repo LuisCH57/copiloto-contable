@@ -1,4 +1,5 @@
 // Piezas pequeñas que usan varias pantallas
+import { useEffect, useState } from "react";
 import { NOMBRE_ESTADO } from "motor-conciliacion/reporte";
 import { ApiError } from "../api.ts";
 import type { Estado } from "../types.ts";
@@ -42,6 +43,18 @@ export function EtiquetaEstado({ estado }: { estado: Estado }) {
   );
 }
 
+// Si tarda, avisa: en el plan gratuito de Render el servidor "se duerme" cuando
+// nadie lo usa y la primera petición puede tardar cerca de un minuto.
 export function Cargando({ texto = "Cargando…" }: { texto?: string }) {
-  return <p className="tenue" role="status">{texto}</p>;
+  const [lento, setLento] = useState(false);
+  useEffect(() => {
+    const temporizador = setTimeout(() => setLento(true), 5000);
+    return () => clearTimeout(temporizador);
+  }, []);
+  return (
+    <p className="tenue" role="status">
+      {texto}
+      {lento && <span className="sub">El servidor se está activando; puede tardar hasta un minuto. No cierres la página.</span>}
+    </p>
+  );
 }

@@ -1,0 +1,27 @@
+# ==========================================================
+# Render "Blueprint": describe el servidor de la API como código.
+# En Render: New > Blueprint > elige este repositorio.
+# Render pedirá DATABASE_URL (sync: false = la escribes tú en su panel;
+# nunca se guarda en GitHub). JWT_SECRET lo genera Render al azar.
+# ==========================================================
+services:
+  - type: web
+    name: copiloto-contable-api
+    runtime: node
+    plan: free
+    region: virginia # cerca de Neon "AWS US East (N. Virginia)"
+    # npm workspaces: se instala desde la raíz (motor + api + web, sin herramientas de desarrollo)
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start --workspace api
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      - key: CORS_ORIGIN
+        value: https://luisch57.github.io
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false

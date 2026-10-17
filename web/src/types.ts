@@ -134,3 +134,8 @@ export interface ResultadoArchivo {
   estado: "recibido" | "repetido" | "rechazado";
   mensaje: string;
 }
+
+export interface Recordatorio {
+  solicitud: Solicitud;
+  empresa: Pick<Empresa, "id" | "ruc" | "razonSocial" | "contacto" | "celular" | "correo">;
+}

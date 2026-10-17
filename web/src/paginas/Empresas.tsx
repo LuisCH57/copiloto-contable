@@ -7,7 +7,8 @@ import { nombrePeriodo } from "../utils/formato.ts";
 import { enlace, ir } from "../utils/ruta.ts";
 import { haceCuanto } from "../utils/mensajes.ts";
 import { useFetch } from "../utils/useFetch.ts";
-import type { Empresa } from "../types.ts";
+import type { Empresa, Sesion } from "../types.ts";
+import RecordatoriosDelDia from "../components/RecordatoriosDelDia.tsx";
 
 // ¿Ya mandó el cliente sus XML del último mes pedido? (para saber a quién recordar)
 function EstadoPedido({ pedido }: { pedido: NonNullable<Empresa["ultimaSolicitud"]> }) {
@@ -20,7 +21,7 @@ function EstadoPedido({ pedido }: { pedido: NonNullable<Empresa["ultimaSolicitud
   return <span className="pedido pedido-espera">! Esperando XML de {mes} · {pedido.ultimoRecordatorio ? "recordado" : "pedido"} {haceCuanto(desde)}</span>;
 }
 
-export default function Empresas() {
+export default function Empresas({ sesion }: { sesion: Sesion }) {
   const { data, error, loading, reload } = useFetch(() => api.empresas(), "empresas");
   const [busqueda, setBusqueda] = useState("");
   const [formularioAbierto, setFormularioAbierto] = useState(false);
@@ -56,6 +57,7 @@ export default function Empresas() {
       )}
 
       <MensajeError error={error} />
+      <RecordatoriosDelDia sesion={sesion} />
 
       {loading && !data ? (
         <Cargando />

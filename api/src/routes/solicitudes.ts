@@ -8,6 +8,7 @@
 //   PATCH  /api/solicitudes/:id                 cerrar o reabrir { cerrada }
 //   POST   /api/solicitudes/:id/recordatorios   anotar que se envió un recordatorio { canal }
 //   DELETE /api/solicitudes/:id                 borrar el enlace y los archivos recibidos
+//   GET    /api/recordatorios                    a quién toca recordar hoy (todas las empresas)
 // ==========================================================
 import { Router } from "express";
 import { auditar, conEstudio, type Cliente } from "../db.ts";
@@ -180,6 +181,32 @@ router.delete("/solicitudes/:id", async (req, res) => {
   });
   if (!borrada) return res.status(404).json({ error: "Solicitud no encontrada." });
   res.status(204).end();
+});
+
+// GET /api/recordatorios: enlaces vigentes SIN ningún XML, que nunca se enviaron
+// o cuyo último envío fue hace DIAS_ENTRE_RECORDATORIOS días o más.
+export const DIAS_ENTRE_RECORDATORIOS = 3;
+
+router.get("/recordatorios", async (req, res) => {
+  const filas = await conEstudio(req.sesion!.estudioId, async (cliente) => {
+    const { rows } = await cliente.query(
+      `${CONSULTA}
+       JOIN empresas e ON e.id = s.empresa_id
+       WHERE e.activa AND NOT s.cerrada AND s.vence_en > now()
+         AND NOT EXISTS (SELECT 1 FROM documentos d WHERE d.solicitud_id = s.id)
+         AND (s.ultimo_recordatorio IS NULL OR s.ultimo_recordatorio < now() - make_interval(days => $1))
+       ORDER BY s.ultimo_recordatorio NULLS FIRST, s.periodo`,
+      [DIAS_ENTRE_RECORDATORIOS]
+    );
+    const empresas = await cliente.query(
+      `SELECT id, ruc, razon_social AS "razonSocial", contacto, celular, correo
+       FROM empresas WHERE id = ANY($1::int[])`,
+      [rows.map((r) => r.empresaId)]
+    );
+    const porId = new Map(empresas.rows.map((e) => [e.id, e]));
+    return rows.map((fila) => ({ solicitud: conToken(fila), empresa: porId.get(fila.empresaId) }));
+  });
+  res.json(filas);
 });
 
 export default router;

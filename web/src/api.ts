@@ -5,6 +5,7 @@
 import type {
   ConciliacionDetalle,
   DocumentoCliente,
+  Recordatorio,
   ResultadoArchivo,
   Solicitud,
   SolicitudPublica,
@@ -120,6 +121,7 @@ export const api = {
   anotarEnvio: (id: number, canal: "whatsapp" | "correo" | "copiado") =>
     json<Solicitud>(`/solicitudes/${id}/recordatorios`, enviar("POST", { canal })),
   borrarSolicitud: (id: number) => pedir(`/solicitudes/${id}`, { method: "DELETE" }),
+  recordatorios: () => json<Recordatorio[]>("/recordatorios"),
 };
 
 // Lo que usa la página PÚBLICA del cliente (sin sesión)

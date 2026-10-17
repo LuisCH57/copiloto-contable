@@ -11,7 +11,7 @@ export function enlaceCliente(token: string): string {
   return `${window.location.origin}${window.location.pathname}#/subir/${token}`;
 }
 
-export function mensajeParaCliente(empresa: Empresa, solicitud: Solicitud, remitente: { nombre: string; estudio: string }): string {
+export function mensajeParaCliente(empresa: Pick<Empresa, "contacto" | "razonSocial">, solicitud: Solicitud, remitente: { nombre: string; estudio: string }): string {
   const saludo = empresa.contacto ? `Hola, ${empresa.contacto}.` : "Hola.";
   const mes = nombrePeriodo(solicitud.periodo).toLowerCase(); // "septiembre 2026"
   const enlace = enlaceCliente(solicitud.token);
@@ -41,7 +41,7 @@ export function enlaceWhatsapp(celular: string | null, mensaje: string): string 
   return `https://wa.me/${destino}?text=${encodeURIComponent(mensaje)}`;
 }
 
-export function enlaceCorreo(correo: string | null, solicitud: Solicitud, empresa: Empresa, mensaje: string): string {
+export function enlaceCorreo(correo: string | null, solicitud: Solicitud, empresa: Pick<Empresa, "razonSocial">, mensaje: string): string {
   const asunto = `XML de compras de ${nombrePeriodo(solicitud.periodo)} · ${empresa.razonSocial}`;
   return `mailto:${correo ?? ""}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(mensaje)}`;
 }

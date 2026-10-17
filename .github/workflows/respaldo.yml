@@ -1,0 +1,57 @@
+# ==========================================================
+# COPIA DE SEGURIDAD semanal de la base de datos (domingos, 3:17 a. m. de Lima).
+#
+# 1. pg_dump descarga toda la base de datos.
+# 2. Se CIFRA con AES-256 (gpg) usando la clave RESPALDO_CLAVE:
+#    sin esa clave, el archivo no se puede leer.
+# 3. Se guarda como "artifact" de GitHub Actions durante 30 días.
+#
+# Secretos necesarios (Settings > Secrets and variables > Actions > Secrets):
+#   DATABASE_URL    la conexión de Neon (la misma de Render)
+#   RESPALDO_CLAVE  una frase larga y aleatoria; guárdala también fuera de GitHub
+# Cómo restaurar: docs/respaldos.md
+# ==========================================================
+name: Copia de seguridad
+
+on:
+  schedule:
+    - cron: '17 8 * * 0' # 08:17 UTC = 03:17 en Lima
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  respaldo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar pg_dump 18 (sirve para servidores PostgreSQL 18 o anteriores)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-18
+      - name: Descargar y cifrar la base de datos
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESPALDO_CLAVE: ${{ secrets.RESPALDO_CLAVE }}
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ ${#RESPALDO_CLAVE} -lt 20 ]; then
+            echo "::error::Faltan los secretos DATABASE_URL o RESPALDO_CLAVE (mínimo 20 caracteres)."
+            exit 1
+          fi
+          set -o pipefail
+          ARCHIVO="respaldo-$(date -u +%Y%m%d).dump.gpg"
+          # --format=custom: comprimido y se restaura con pg_restore
+          /usr/lib/postgresql/18/bin/pg_dump "$DATABASE_URL" --format=custom --no-owner \
+            | gpg --batch --yes --symmetric --cipher-algo AES256 \
+                  --passphrase-fd 3 3<<<"$RESPALDO_CLAVE" --output "$ARCHIVO"
+          ls -lh "$ARCHIVO"
+          echo "ARCHIVO=$ARCHIVO" >> "$GITHUB_ENV"
+      - name: Guardar el respaldo cifrado (30 días)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.ARCHIVO }}
+          path: ${{ env.ARCHIVO }}
+          retention-days: 30
+          if-no-files-found: error

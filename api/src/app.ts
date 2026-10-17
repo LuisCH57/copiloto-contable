@@ -12,6 +12,7 @@ import empresasRouter from "./routes/empresas.ts";
 import conciliacionesRouter, { LIMITES } from "./routes/conciliaciones.ts";
 import solicitudesRouter from "./routes/solicitudes.ts";
 import publicoRouter, { LIMITES_CLIENTE } from "./routes/publico.ts";
+import { limitarPeticiones } from "./middleware/limite.ts";
 
 export const app = express();
 
@@ -19,6 +20,16 @@ app.disable("x-powered-by"); // no anunciar que usamos Express
 // En Render la API está detrás de un proxy: así req.ip es la IP real del visitante
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "100kb" }));
+
+// Cabeceras de seguridad (lo esencial de la librería helmet, sin dependencia extra)
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff"); // el navegador no "adivina" tipos de archivo
+  res.setHeader("X-Frame-Options", "DENY"); // nadie puede incrustar la API en otra página
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cache-Control", "no-store"); // datos privados: que no queden en cachés
+  if (config.produccion) res.setHeader("Strict-Transport-Security", "max-age=31536000"); // solo HTTPS
+  next();
+});
 
 // CORS: solo los sitios de CORS_ORIGIN pueden usar la API desde el navegador
 app.use((req, res, next) => {
@@ -46,6 +57,9 @@ app.get("/api/health", async (_req, res) => {
 
 // Primero lo PÚBLICO (sin sesión): los otros routers montados en /api exigen sesión
 app.use("/api/publico", publicoRouter);
+// Frena a quien intente adivinar contraseñas o crear cuentas en masa
+app.use("/api/auth/login", limitarPeticiones({ maximo: 20, ventanaMs: 15 * 60 * 1000 }));
+app.use("/api/auth/registro", limitarPeticiones({ maximo: 20, ventanaMs: 60 * 60 * 1000 }));
 app.use("/api/auth", authRouter);
 app.use("/api/usuarios", usuariosRouter);
 app.use("/api/empresas", empresasRouter);

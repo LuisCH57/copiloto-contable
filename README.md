@@ -2,7 +2,31 @@
 
 Herramienta para estudios contables del Perú: concilia la **propuesta del SIRE** (registro de compras que arma SUNAT) con los **XML de los comprobantes** que entregan los clientes, y explica cada diferencia con la acción a seguir.
 
-> **Estado:** Fase 4 de 5. Funcionan el motor de conciliación, la API para varios estudios contables (con aislamiento de datos entre estudios), la aplicación web y el enlace para que los clientes suban sus XML. Falta publicarlo y probarlo con un archivo real de la propuesta del SIRE.
+**Aplicación:** https://luisch57.github.io/copiloto-contable/ · **API:** Render · **Base de datos:** Neon (PostgreSQL)
+
+> **Estado:** versión 1 publicada, lista para un piloto con contadores. Falta confirmar el formato de la propuesta del SIRE con un archivo real (ver [docs/piloto.md](docs/piloto.md)).
+
+## Cómo funciona
+
+```
+ Cliente del contador                    Contador
+ (celular, sin cuenta)                   (navegador, con sesión)
+        │ sube XML / .zip                       │ propuesta del SIRE + revisión
+        ▼                                       ▼
+ ┌───────────────────────────────────────────────────────┐
+ │  Aplicación web · React + TypeScript · GitHub Pages   │
+ └───────────────────────────┬───────────────────────────┘
+                             │ HTTPS + JSON
+ ┌───────────────────────────▼───────────────────────────┐
+ │  API · Node.js + Express · Render                     │
+ │  motor de conciliación · enlaces firmados (HMAC)      │
+ └───────────────────────────┬───────────────────────────┘
+                             │ TLS · rol copiloto_app
+ ┌───────────────────────────▼───────────────────────────┐
+ │  PostgreSQL · Neon · Row-Level Security por estudio   │
+ └───────────────────────────────────────────────────────┘
+   GitHub Actions: pruebas en cada push · publicación de la web · respaldo cifrado semanal
+```
 
 ## Qué detecta
 
@@ -26,6 +50,9 @@ El resumen calcula el **IGV en riesgo**: el crédito fiscal de compras que SUNAT
 | `api/` | API REST (Node.js, Express, TypeScript): estudios, usuarios, empresas cliente, conciliaciones y auditoría |
 | `web/` | Aplicación web (React, TypeScript, Vite): cartera de empresas, subida de archivos, revisión de hallazgos, equipo, auditoría y la página pública donde el cliente sube sus XML |
 | `database/` | Esquema de PostgreSQL con Row-Level Security |
+| `docs/` | [Respaldos](docs/respaldos.md), [privacidad](docs/privacidad.md) y [guía del piloto](docs/piloto.md) |
+| `render.yaml` | Configuración del servidor de la API en Render |
+| `.github/workflows/` | Pruebas, publicación de la web y copia de seguridad semanal |
 
 ## API
 
@@ -50,6 +77,7 @@ El resumen calcula el **IGV en riesgo**: el crédito fiscal de compras que SUNAT
 | POST | `/api/solicitudes/:id/renovar` | Con sesión | Enlace nuevo (anula el anterior) |
 | PATCH / DELETE | `/api/solicitudes/:id` | Con sesión | Cerrar o reabrir · borrar con sus XML |
 | POST | `/api/solicitudes/:id/recordatorios` | Con sesión | Anotar que se envió el enlace |
+| GET | `/api/recordatorios` | Con sesión | Clientes a los que toca recordar hoy |
 | GET | `/api/publico/solicitudes/:token` | Enlace | Lo que ve el cliente: empresa, mes y XML recibidos |
 | POST | `/api/publico/solicitudes/:token/documentos` | Enlace | El cliente sube XML; responde archivo por archivo |
 
@@ -58,8 +86,8 @@ El resumen calcula el **IGV en riesgo**: el crédito fiscal de compras que SUNAT
 Requiere Node.js 24 y una base de datos PostgreSQL (por ejemplo, gratis en [Neon](https://neon.com)).
 
 ```bash
-npm install                      # instala motor y api (npm workspaces)
-npm test                         # 56 pruebas: no necesitan base de datos
+npm install                      # instala motor, api y web (npm workspaces)
+npm test                         # 63 pruebas: no necesitan base de datos
 ```
 
 **Probar sin base de datos (modo demo):** la API arranca con un PostgreSQL en memoria; al detenerla se borra todo.
@@ -94,6 +122,17 @@ npm run conciliar -- --ruc 20600000013 --periodo 202609 \
   --propuesta salidas/ejemplo/propuesta-202609.txt --xml salidas/ejemplo/xml
 ```
 
+## Publicación
+
+| Pieza | Dónde | Cómo se actualiza |
+|---|---|---|
+| Aplicación web | GitHub Pages | `.github/workflows/pages.yml` en cada push que cambie `web/` o `motor/`. Usa la variable `VITE_API_URL` del repositorio. |
+| API | Render (plan gratuito) | `render.yaml`. Render vuelve a publicar en cada push a `main`. Variables: `DATABASE_URL` (se escribe en Render), `JWT_SECRET` (la genera Render), `CORS_ORIGIN`, `NODE_ENV`. |
+| Base de datos | Neon | `database/schema.sql` en el SQL Editor. Se puede volver a ejecutar sin perder datos. |
+| Respaldos | GitHub Actions | `.github/workflows/respaldo.yml`, cada domingo, cifrado. Secretos `DATABASE_URL` y `RESPALDO_CLAVE`. |
+
+En el plan gratuito de Render el servidor se duerme tras unos minutos sin uso: la primera petición puede tardar cerca de un minuto (la aplicación lo avisa).
+
 ## Hoja de ruta
 
 | Fase | Contenido | Estado |
@@ -102,7 +141,8 @@ npm run conciliar -- --ruc 20600000013 --periodo 202609 \
 | 2 | API y base de datos para varios estudios contables (PostgreSQL con aislamiento por estudio), usuarios, roles y auditoría | Hecha |
 | 3 | Aplicación web: cartera de empresas, subida de archivos (también arrastrando la carpeta), revisión de hallazgos con filtros, equipo y auditoría | Hecha |
 | 4 | Enlace para que los clientes del contador suban sus XML (también en .zip), envío y recordatorios por WhatsApp o correo | Hecha |
-| 5 | Publicación, seguridad, copias de seguridad y piloto con contadores reales | Pendiente |
+| 5 | Publicación (GitHub Pages, Render, Neon), cabeceras de seguridad y límites de intentos, respaldo cifrado semanal, limpieza automática de XML, recordatorios del día y guía del piloto | Hecha |
+| Siguiente | Piloto con 2 o 3 contadores; según resultados: registro de ventas, recordatorios automáticos por correo, conexión con la API del SIRE | Por decidir |
 
 ## Decisiones técnicas
 
@@ -118,6 +158,10 @@ npm run conciliar -- --ruc 20600000013 --periodo 202609 \
 - **Los .zip se abren en el navegador** (fflate): al servidor solo llegan los XML.
 - **Recordatorios desde el WhatsApp o el correo del contador** (enlaces `wa.me` y `mailto:`): el cliente recibe el mensaje de alguien que conoce, y no hace falta contratar un servicio de envíos.
 - **Auditoría** de inicios de sesión, cambios de equipo, empresas, conciliaciones, revisiones, enlaces y subidas del cliente.
+- **Recordatorios del día:** la lista de empresas muestra a quién recordar (enlace sin XML y último envío hace 3 días o más) con un botón de WhatsApp. No se envían solos porque WhatsApp automático exige la API de WhatsApp Business (verificación de Meta y costo por mensaje).
+- **Retención limitada:** los XML de los clientes se borran solos 90 días después de que vence su enlace ([privacidad](docs/privacidad.md)).
+- **Respaldo cifrado:** `pg_dump` + AES-256 (gpg) antes de guardarse; el procedimiento de restauración está probado ([respaldos](docs/respaldos.md)).
+- **Seguridad HTTP:** cabeceras `nosniff`, `X-Frame-Options`, `Strict-Transport-Security`, sin caché; límite de intentos en inicio de sesión, registro y rutas públicas.
 - **Montos en céntimos** (enteros) para evitar errores de redondeo.
 - **Sin Clave SOL en la primera versión:** el contador descarga los archivos y los sube. La conexión directa con la API del SIRE se evaluará después, por el riesgo de guardar credenciales de terceros.
 - **Datos de clientes fuera del repositorio:** el `.gitignore` excluye `datos-reales/`, los `.zip` y `salidas/`. Las pruebas usan solo datos ficticios.
@@ -127,5 +171,6 @@ npm run conciliar -- --ruc 20600000013 --periodo 202609 \
 - Falta confirmar el formato de la propuesta con un archivo real.
 - Solo concilia el **registro de compras**, no el de ventas.
 - No lee comprobantes en PDF ni en foto (solo XML, sueltos o dentro de un `.zip`).
-- Los recordatorios todavía los envía el contador con un clic; no son automáticos.
+- Los recordatorios los envía el contador con un clic desde su WhatsApp; no son automáticos.
+- El límite de intentos se guarda en memoria: sirve para un solo servidor.
 - Esto **no es asesoría tributaria**: el contador valida cada acción sugerida.

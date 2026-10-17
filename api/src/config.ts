@@ -18,12 +18,21 @@ if (jwtSecret.length < 32) {
   process.exit(1);
 }
 
+const produccion = process.env.NODE_ENV === "production";
+
 export const config = {
   databaseUrl: required("DATABASE_URL"),
   jwtSecret,
   port: Number(process.env.PORT ?? 3000),
+  produccion,
   corsOrigins: (process.env.CORS_ORIGIN ?? "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),
 };
+
+// En producción, sin CORS_ORIGIN la aplicación web no podría usar la API: mejor avisar al arrancar
+if (produccion && config.corsOrigins.length === 0) {
+  console.error("Falta CORS_ORIGIN (por ejemplo, https://luisch57.github.io).");
+  process.exit(1);
+}

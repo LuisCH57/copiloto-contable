@@ -111,7 +111,7 @@ export default function App() {
       </header>
 
       <main className="contenido">
-        {ruta.pagina === "empresas" && <Empresas />}
+        {ruta.pagina === "empresas" && <Empresas sesion={sesion} />}
         {ruta.pagina === "empresa" && <Empresa key={ruta.id} id={ruta.id} sesion={sesion} />}
         {ruta.pagina === "conciliacion" && <Conciliacion key={ruta.id} id={ruta.id} />}
         {ruta.pagina === "equipo" && <Equipo sesion={sesion} />}
