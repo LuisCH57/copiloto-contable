@@ -1,0 +1,19 @@
+# Paquetes descargados (se recrean con npm install)
+node_modules
+
+# Variables de entorno: contienen contraseñas. NUNCA se suben a GitHub.
+.env
+
+# Datos reales de clientes: NUNCA se suben a GitHub
+datos-reales/
+*.zip
+
+# Resultados generados
+salidas/
+dist
+
+# Archivos del sistema y del editor
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+*.log
