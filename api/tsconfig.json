@@ -1,0 +1,22 @@
+{
+  // TypeScript solo REVISA los tipos (noEmit): Node ejecuta los .ts directamente.
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+
+    // Reglas que exige Node para ejecutar TypeScript sin compilar
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+
+    // Revisión estricta: detecta más errores antes de ejecutar
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": ["src", "scripts", "test"]
+}

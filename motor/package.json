@@ -4,6 +4,9 @@
   "private": true,
   "description": "Concilia la propuesta del SIRE (registro de compras) con los XML de los comprobantes",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "engines": {
     "node": "24.x"
   },

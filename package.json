@@ -1,0 +1,13 @@
+{
+  "name": "copiloto-contable",
+  "private": true,
+  "description": "Conciliación del SIRE para estudios contables",
+  "workspaces": [
+    "motor",
+    "api"
+  ],
+  "scripts": {
+    "test": "npm test --workspaces",
+    "typecheck": "npm run typecheck --workspaces"
+  }
+}

@@ -1,0 +1,89 @@
+# ==========================================================
+# Pruebas manuales de la API con la extensión REST Client.
+# Antes: en la carpeta motor/ ejecuta "npm run ejemplos" para crear
+# los archivos ficticios que usa la prueba 6.
+# ==========================================================
+
+@api = http://localhost:3000/api
+
+### 1. ¿La API está viva?
+GET {{api}}/health
+
+### 2. Registrar tu estudio contable (cámbiale el correo si ya existe)
+# @name registro
+POST {{api}}/auth/registro
+Content-Type: application/json
+
+{
+  "nombreEstudio": "Estudio de Prueba",
+  "nombre": "Sebastián Prueba",
+  "email": "titular@prueba.pe",
+  "password": "clave-segura-123"
+}
+
+### 3. Iniciar sesión
+# @name login
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "titular@prueba.pe",
+  "password": "clave-segura-123"
+}
+
+### 4. Agregar una empresa cliente (RUC ficticio del ejemplo)
+# @name empresa
+POST {{api}}/empresas
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "ruc": "20600000013",
+  "razonSocial": "Bodega Doña Rosa S.A.C."
+}
+
+### 5. Ver la cartera de empresas
+GET {{api}}/empresas
+Authorization: Bearer {{login.response.body.token}}
+
+### 6. Conciliar septiembre 2026 (sube la propuesta y 2 XML de ejemplo)
+# @name conciliacion
+POST {{api}}/empresas/{{empresa.response.body.id}}/conciliaciones
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: multipart/form-data; boundary=LIMITE
+
+--LIMITE
+Content-Disposition: form-data; name="periodo"
+
+202609
+--LIMITE
+Content-Disposition: form-data; name="propuesta"; filename="propuesta.txt"
+Content-Type: text/plain
+
+< ../motor/salidas/ejemplo/propuesta-202609.txt
+--LIMITE
+Content-Disposition: form-data; name="xml"; filename="1.xml"
+Content-Type: text/xml
+
+< ../motor/salidas/ejemplo/xml/20500000016-01-F001-1501.xml
+--LIMITE
+Content-Disposition: form-data; name="xml"; filename="2.xml"
+Content-Type: text/xml
+
+< ../motor/salidas/ejemplo/xml/20500000024-01-F002-330.xml
+--LIMITE--
+
+### 7. Ver el detalle de la conciliación
+GET {{api}}/conciliaciones/{{conciliacion.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
+
+### 8. Historial de conciliaciones de la empresa
+GET {{api}}/empresas/{{empresa.response.body.id}}/conciliaciones
+Authorization: Bearer {{login.response.body.token}}
+
+### 9. Auditoría del estudio (solo el titular)
+GET {{api}}/auditoria
+Authorization: Bearer {{login.response.body.token}}
+
+### 10. Sin sesión (debe responder 401)
+GET {{api}}/empresas
