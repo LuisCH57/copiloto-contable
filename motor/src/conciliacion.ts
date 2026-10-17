@@ -37,6 +37,14 @@ export function describir(c: Comprobante): string {
   return `${NOMBRE_TIPO[c.tipo] ?? c.tipo} ${c.serie}-${c.numero} de ${c.nombreEmisor || c.rucEmisor}`;
 }
 
+// "2026-08-29" -> "29/08/2026" · "202609" -> "09/2026"
+function fecha(iso: string): string {
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+}
+function mes(periodo: string): string {
+  return `${periodo.slice(4, 6)}/${periodo.slice(0, 4)}`;
+}
+
 function soles(centimos: number, moneda: string): string {
   return `${moneda === "PEN" ? "S/" : moneda} ${formatearMonto(centimos)}`;
 }
@@ -86,7 +94,7 @@ export function conciliar(
         estado: "otro_periodo",
         clave,
         comprobante: xml,
-        explicacion: `${describir(xml)} es del ${xml.fechaEmision}, fuera del periodo ${periodo}.`,
+        explicacion: `${describir(xml)} es del ${fecha(xml.fechaEmision)}, fuera del periodo ${mes(periodo)}.`,
         accion: "Revisar si corresponde a otro mes o si se anota fuera de su periodo según las reglas vigentes.",
       });
       descartados.set(clave, xml);

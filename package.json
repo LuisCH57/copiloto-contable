@@ -4,10 +4,11 @@
   "description": "Conciliación del SIRE para estudios contables",
   "workspaces": [
     "motor",
-    "api"
+    "api",
+    "web"
   ],
   "scripts": {
-    "test": "npm test --workspaces",
+    "test": "npm test --workspace motor --workspace api",
     "typecheck": "npm run typecheck --workspaces"
   }
 }

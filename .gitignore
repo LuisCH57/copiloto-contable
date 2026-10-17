@@ -10,6 +10,7 @@ datos-reales/
 
 # Resultados generados
 salidas/
+conciliacion-*.csv
 dist
 
 # Archivos del sistema y del editor

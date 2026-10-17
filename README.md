@@ -2,7 +2,7 @@
 
 Herramienta para estudios contables del Perú: concilia la **propuesta del SIRE** (registro de compras que arma SUNAT) con los **XML de los comprobantes** que entregan los clientes, y explica cada diferencia con la acción a seguir.
 
-> **Estado:** Fase 2 de 5. Funcionan el motor de conciliación y la API para varios estudios contables, con aislamiento de datos entre estudios. Falta la aplicación web y probar con un archivo real de la propuesta del SIRE.
+> **Estado:** Fase 3 de 5. Funcionan el motor de conciliación, la API para varios estudios contables (con aislamiento de datos entre estudios) y la aplicación web. Falta publicarlo y probarlo con un archivo real de la propuesta del SIRE.
 
 ## Qué detecta
 
@@ -24,6 +24,7 @@ El resumen calcula el **IGV en riesgo**: el crédito fiscal de compras que SUNAT
 |---|---|
 | `motor/` | Motor de conciliación: lectores de XML UBL 2.1 y de la propuesta del SIRE, reglas y reporte CSV. Funciona también desde la línea de comandos. |
 | `api/` | API REST (Node.js, Express, TypeScript): estudios, usuarios, empresas cliente, conciliaciones y auditoría |
+| `web/` | Aplicación web (React, TypeScript, Vite): cartera de empresas, subida de archivos, revisión de hallazgos, equipo y auditoría |
 | `database/` | Esquema de PostgreSQL con Row-Level Security |
 
 ## API
@@ -53,6 +54,13 @@ npm install                      # instala motor y api (npm workspaces)
 npm test                         # 45 pruebas: no necesitan base de datos
 ```
 
+**Probar sin base de datos (modo demo):** la API arranca con un PostgreSQL en memoria; al detenerla se borra todo.
+
+```bash
+npm run demo --workspace api     # terminal 1: API en http://localhost:3000
+cd web && npm run dev            # terminal 2: abre http://localhost:5173/
+```
+
 Para usar la API con tu base de datos:
 
 1. Ejecuta `database/schema.sql` en tu base de datos (en Neon: SQL Editor).
@@ -62,7 +70,12 @@ Para usar la API con tu base de datos:
    cd api
    npm run dev
    ```
-4. Prueba las rutas con `api/requests.http` (extensión REST Client de VS Code). Antes ejecuta `npm run ejemplos` dentro de `motor/` para crear los archivos ficticios.
+4. En otra terminal, inicia la aplicación web y abre `http://localhost:5173`:
+   ```bash
+   cd web
+   npm run dev
+   ```
+5. También puedes probar las rutas con `api/requests.http` (extensión REST Client de VS Code). Antes ejecuta `npm run ejemplos` dentro de `motor/` para crear los archivos ficticios.
 
 El motor también funciona solo, desde la línea de comandos:
 
@@ -79,7 +92,7 @@ npm run conciliar -- --ruc 20600000013 --periodo 202609 \
 |---|---|---|
 | 1 | Motor de conciliación: lectores de XML UBL 2.1 y de la propuesta del SIRE, reglas, reporte CSV, pruebas | Hecha |
 | 2 | API y base de datos para varios estudios contables (PostgreSQL con aislamiento por estudio), usuarios, roles y auditoría | Hecha |
-| 3 | Aplicación web: cartera de clientes, carga de archivos, conciliación del mes y calendario de vencimientos | Pendiente |
+| 3 | Aplicación web: cartera de empresas, subida de archivos (también arrastrando la carpeta), revisión de hallazgos con filtros, equipo y auditoría | Hecha |
 | 4 | Enlace para que los clientes del contador suban sus comprobantes, con recordatorios | Pendiente |
 | 5 | Publicación, seguridad, copias de seguridad y piloto con contadores reales | Pendiente |
 
