@@ -5,7 +5,20 @@ import { api } from "../api.ts";
 import { Cargando, MensajeError } from "../components/Comunes.tsx";
 import { nombrePeriodo } from "../utils/formato.ts";
 import { enlace, ir } from "../utils/ruta.ts";
+import { haceCuanto } from "../utils/mensajes.ts";
 import { useFetch } from "../utils/useFetch.ts";
+import type { Empresa } from "../types.ts";
+
+// ¿Ya mandó el cliente sus XML del último mes pedido? (para saber a quién recordar)
+function EstadoPedido({ pedido }: { pedido: NonNullable<Empresa["ultimaSolicitud"]> }) {
+  const mes = nombrePeriodo(pedido.periodo).toLowerCase();
+  if (pedido.documentos > 0) {
+    return <span className="pedido pedido-ok">✓ {pedido.documentos} XML de {mes} recibidos</span>;
+  }
+  if (pedido.cerrada) return <span className="pedido tenue">XML de {mes}: enlace cerrado</span>;
+  const desde = pedido.ultimoRecordatorio ?? pedido.creadoEn;
+  return <span className="pedido pedido-espera">! Esperando XML de {mes} · {pedido.ultimoRecordatorio ? "recordado" : "pedido"} {haceCuanto(desde)}</span>;
+}
 
 export default function Empresas() {
   const { data, error, loading, reload } = useFetch(() => api.empresas(), "empresas");
@@ -67,6 +80,7 @@ export default function Empresas() {
                     {empresa.ultimoPeriodo ? `Última conciliación: ${nombrePeriodo(empresa.ultimoPeriodo)}` : "Sin conciliaciones"}
                     {!empresa.activa && " · Inactiva"}
                   </span>
+                  {empresa.ultimaSolicitud && <EstadoPedido pedido={empresa.ultimaSolicitud} />}
                 </a>
               </li>
             ))}

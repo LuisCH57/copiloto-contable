@@ -17,6 +17,16 @@ export interface Empresa {
   activa: boolean;
   creadoEn: string;
   ultimoPeriodo: string | null;
+  contacto: string | null;
+  celular: string | null;
+  correo: string | null;
+  ultimaSolicitud: {
+    periodo: string;
+    creadoEn: string;
+    cerrada: boolean;
+    documentos: number;
+    ultimoRecordatorio: string | null;
+  } | null;
 }
 
 export interface ConciliacionResumen {
@@ -79,4 +89,48 @@ export interface EventoAuditoria {
   detalle: Record<string, unknown>;
   creadoEn: string;
   usuario: string | null;
+}
+
+// Fase 4: enlaces para que el cliente suba sus comprobantes
+export interface Solicitud {
+  id: number;
+  empresaId: number;
+  periodo: string;
+  token: string;
+  venceEn: string;
+  cerrada: boolean;
+  vigente: boolean;
+  recordatorios: number; // cuántas veces se le envió el enlace
+  ultimoRecordatorio: string | null;
+  creadoEn: string;
+  documentos: number;
+  ultimoDocumento: string | null;
+}
+
+export interface DocumentoCliente {
+  archivo: string;
+  rucEmisor: string;
+  nombreEmisor: string;
+  tipo: string;
+  serie: string;
+  numero: string;
+  fechaEmision: string;
+  moneda: string;
+  total: number;
+  subidoEn: string;
+}
+
+export interface SolicitudPublica {
+  estudio: string;
+  razonSocial: string;
+  ruc: string;
+  periodo: string;
+  venceEn: string;
+  documentos: DocumentoCliente[];
+}
+
+export interface ResultadoArchivo {
+  archivo: string;
+  estado: "recibido" | "repetido" | "rechazado";
+  mensaje: string;
 }

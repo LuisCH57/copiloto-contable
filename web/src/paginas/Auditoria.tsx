@@ -24,6 +24,22 @@ function describir(evento: EventoAuditoria): string {
       return "Editó una empresa";
     case "conciliacion_creada":
       return `Concilió ${typeof d.periodo === "string" ? nombrePeriodo(d.periodo) : "un periodo"} (${String(d.xml ?? 0)} XML)`;
+    case "contacto_actualizado":
+      return "Actualizó el contacto de una empresa";
+    case "solicitud_creada":
+      return `Creó el enlace para pedir los XML de ${typeof d.periodo === "string" ? nombrePeriodo(d.periodo) : "un mes"}`;
+    case "solicitud_renovada":
+      return "Generó un enlace nuevo (el anterior quedó anulado)";
+    case "solicitud_cerrada":
+      return "Cerró un enlace de comprobantes";
+    case "solicitud_reabierta":
+      return "Reabrió un enlace de comprobantes";
+    case "solicitud_borrada":
+      return "Borró un enlace y sus XML";
+    case "recordatorio_enviado":
+      return `Envió el enlace al cliente (${d.canal === "whatsapp" ? "WhatsApp" : d.canal === "correo" ? "correo" : "mensaje copiado"})`;
+    case "documentos_recibidos":
+      return `Subió ${String(d.recibidos ?? 0)} XML con su enlace (RUC ${String(d.empresa ?? "")}, ${typeof d.periodo === "string" ? nombrePeriodo(d.periodo) : ""})${Number(d.rechazados) > 0 ? `; ${String(d.rechazados)} ${Number(d.rechazados) === 1 ? "rechazado" : "rechazados"}` : ""}`;
     case "hallazgo_revisado":
       return d.revisado ? "Marcó un hallazgo como revisado" : "Desmarcó un hallazgo";
     default:
@@ -58,7 +74,7 @@ export default function Auditoria() {
               {(data ?? []).map((e) => (
                 <tr key={e.id}>
                   <td className="mono">{fechaHora(e.creadoEn)}</td>
-                  <td>{e.usuario ?? "—"}</td>
+                  <td>{e.usuario ?? (e.accion === "documentos_recibidos" ? <span className="tenue">El cliente</span> : "—")}</td>
                   <td>{describir(e)}</td>
                 </tr>
               ))}

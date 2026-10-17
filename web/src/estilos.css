@@ -248,3 +248,51 @@ a { color: var(--acento); }
   .encabezado-seccion > .boton,
   .encabezado-seccion > div:last-child:not(:first-child) { width: 100%; }
 }
+
+/* ---------- Fase 4: pedir los XML al cliente ---------- */
+.contacto { margin: 0.75rem 0; }
+.contacto-formulario { margin: 0.75rem 0; padding: 1rem; background: var(--fondo); border-radius: var(--radio); }
+.fila-crear { display: flex; align-items: flex-end; gap: 0.75rem; flex-wrap: wrap; margin: 1rem 0; }
+.fila-crear .campo { flex: 0 1 14rem; }
+.lista-solicitudes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.solicitud { border: 1px solid var(--linea); border-radius: var(--radio); padding: 0.9rem 1rem; }
+.solicitud-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.solicitud-datos { margin: 0.35rem 0 0.6rem; font-size: 0.9rem; }
+.solicitud-envio { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.solicitud-acciones { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; }
+.solicitud .tabla-desplazable { margin-top: 0.75rem; }
+.boton-whatsapp { background: #1f7a45; border-color: #1f7a45; color: #fff; text-decoration: none; }
+.boton-whatsapp:hover:not(:disabled) { background: #186238; border-color: #186238; }
+a.boton { text-decoration: none; }
+.nota-pequena { font-size: 0.82rem; margin: 0.5rem 0 0; }
+.confirmar { color: var(--grave); }
+.casilla-destacada { padding: 0.75rem 1rem; background: var(--acento-suave); border-radius: var(--radio); align-items: flex-start; }
+.casilla-destacada input { margin-top: 0.2rem; }
+.boton.deshabilitado { opacity: 0.55; cursor: not-allowed; }
+.avisos-zona { margin: 0.5rem 0 0; padding: 0; list-style: none; color: var(--aviso); font-size: 0.9rem; }
+
+/* Estado del pedido en la lista de empresas */
+.pedido { margin-top: 0.25rem; font-size: 0.85rem; }
+.pedido-ok { color: var(--ok); }
+.pedido-espera { color: var(--aviso); }
+
+/* ---------- Página pública del cliente ---------- */
+.pagina-cliente { min-height: 100vh; display: flex; flex-direction: column; }
+.cabecera-cliente {
+  display: flex; align-items: center; gap: 0.6rem; padding: 0.85rem 1rem;
+  background: var(--superficie); border-bottom: 1px solid var(--linea); font-weight: 600;
+}
+.contenido-cliente { max-width: 44rem; width: 100%; }
+.contenido-cliente h1 { margin-bottom: 0.25rem; }
+.texto-normal { color: var(--texto); }
+.pasos-cliente ol { margin: 0.5rem 0; padding-left: 1.25rem; }
+.pasos-cliente li { margin-bottom: 0.4rem; }
+.lista-resultados { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.lista-resultados li { display: flex; flex-direction: column; padding: 0.5rem 0.75rem; border-radius: var(--radio); font-size: 0.92rem; overflow-wrap: anywhere; }
+.resultado-rechazado { background: var(--grave-suave); color: var(--grave); }
+.resultado-repetido { background: var(--neutro-suave); }
+.resultado-recibido { background: var(--aviso-suave); color: var(--aviso); }
+.lista-recibidos { list-style: none; margin: 0; padding: 0; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio); }
+.lista-recibidos li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--linea); }
+.lista-recibidos li:last-child { border-bottom: 0; }
+.lista-recibidos .num { font-variant-numeric: tabular-nums; white-space: nowrap; }

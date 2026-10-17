@@ -12,6 +12,7 @@ import Empresa from "./paginas/Empresa.tsx";
 import Conciliacion from "./paginas/Conciliacion.tsx";
 import Equipo from "./paginas/Equipo.tsx";
 import Auditoria from "./paginas/Auditoria.tsx";
+import SubirComprobantes from "./paginas/SubirComprobantes.tsx";
 
 const CLAVE_SESION = "copiloto-contable-sesion";
 
@@ -64,6 +65,11 @@ export default function App() {
     window.location.hash = "";
   }
 
+  // La página del CLIENTE es pública: se muestra sin importar si hay sesión
+  if (ruta.pagina === "subir") {
+    return <SubirComprobantes token={ruta.token} />;
+  }
+
   if (!sesion) {
     return (
       <main className="contenido">
@@ -106,7 +112,7 @@ export default function App() {
 
       <main className="contenido">
         {ruta.pagina === "empresas" && <Empresas />}
-        {ruta.pagina === "empresa" && <Empresa key={ruta.id} id={ruta.id} />}
+        {ruta.pagina === "empresa" && <Empresa key={ruta.id} id={ruta.id} sesion={sesion} />}
         {ruta.pagina === "conciliacion" && <Conciliacion key={ruta.id} id={ruta.id} />}
         {ruta.pagina === "equipo" && <Equipo sesion={sesion} />}
         {ruta.pagina === "auditoria" && (esTitular ? <Auditoria /> : <p className="tenue">Solo el titular puede ver la auditoría.</p>)}

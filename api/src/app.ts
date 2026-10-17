@@ -10,10 +10,14 @@ import authRouter from "./routes/auth.ts";
 import usuariosRouter from "./routes/usuarios.ts";
 import empresasRouter from "./routes/empresas.ts";
 import conciliacionesRouter, { LIMITES } from "./routes/conciliaciones.ts";
+import solicitudesRouter from "./routes/solicitudes.ts";
+import publicoRouter, { LIMITES_CLIENTE } from "./routes/publico.ts";
 
 export const app = express();
 
 app.disable("x-powered-by"); // no anunciar que usamos Express
+// En Render la API está detrás de un proxy: así req.ip es la IP real del visitante
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "100kb" }));
 
 // CORS: solo los sitios de CORS_ORIGIN pueden usar la API desde el navegador
@@ -40,10 +44,13 @@ app.get("/api/health", async (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// Primero lo PÚBLICO (sin sesión): los otros routers montados en /api exigen sesión
+app.use("/api/publico", publicoRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/usuarios", usuariosRouter);
 app.use("/api/empresas", empresasRouter);
 app.use("/api", conciliacionesRouter);
+app.use("/api", solicitudesRouter);
 
 // GET /api/auditoria: últimas acciones del estudio (solo el titular)
 app.get("/api/auditoria", requireAuth, requireRol("titular"), async (req, res) => {
@@ -62,12 +69,20 @@ app.use((req, res) => {
   res.status(404).json({ error: `No existe la ruta ${req.method} ${req.url}` });
 });
 
-app.use((error: Error & { type?: string }, _req: Request, res: Response, _next: NextFunction) => {
+app.use((error: Error & { type?: string }, req: Request, res: Response, _next: NextFunction) => {
   if (error.type === "entity.parse.failed") {
     return res.status(400).json({ error: "El cuerpo de la petición no es un JSON válido." });
   }
   if (error.type === "entity.too.large") {
     return res.status(413).json({ error: "La petición es demasiado grande." });
+  }
+  if (error instanceof multer.MulterError && req.path.startsWith("/api/publico")) {
+    const mensajes: Record<string, string> = {
+      LIMIT_FILE_SIZE: `Cada archivo puede pesar como máximo ${LIMITES_CLIENTE.tamanoArchivo / 1024 / 1024} MB.`,
+      LIMIT_FILE_COUNT: `Envía como máximo ${LIMITES_CLIENTE.archivosPorEnvio} archivos a la vez.`,
+      LIMIT_UNEXPECTED_FILE: "Usa el campo 'xml' para los archivos.",
+    };
+    return res.status(400).json({ error: mensajes[error.code] ?? "No se pudieron recibir los archivos." });
   }
   if (error instanceof multer.MulterError) {
     const mensajes: Record<string, string> = {

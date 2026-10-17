@@ -4,6 +4,10 @@
 // ==========================================================
 import type {
   ConciliacionDetalle,
+  DocumentoCliente,
+  ResultadoArchivo,
+  Solicitud,
+  SolicitudPublica,
   ConciliacionResumen,
   Empresa,
   EventoAuditoria,
@@ -73,9 +77,10 @@ export const api = {
     json<Empresa>(`/empresas/${id}`, enviar("PUT", { razonSocial, activa })),
 
   conciliaciones: (empresaId: number) => json<ConciliacionResumen[]>(`/empresas/${empresaId}/conciliaciones`),
-  conciliar: (empresaId: number, periodo: string, propuesta: File, xmls: File[]) => {
+  conciliar: (empresaId: number, periodo: string, propuesta: File, xmls: File[], documentosCliente: boolean) => {
     const form = new FormData();
     form.append("periodo", periodo);
+    if (documentosCliente) form.append("documentosCliente", "si");
     form.append("propuesta", propuesta);
     for (const xml of xmls) form.append("xml", xml);
     return json<NuevaConciliacion>(`/empresas/${empresaId}/conciliaciones`, { method: "POST", body: form });
@@ -102,4 +107,30 @@ export const api = {
   cambiarActivo: (id: number, activo: boolean) => json<Usuario>(`/usuarios/${id}`, enviar("PATCH", { activo })),
 
   auditoria: () => json<EventoAuditoria[]>("/auditoria"),
+
+  // Fase 4: pedir los comprobantes al cliente
+  guardarContacto: (empresaId: number, datos: { contacto: string; celular: string; correo: string }) =>
+    json<Empresa>(`/empresas/${empresaId}/contacto`, enviar("PATCH", datos)),
+  solicitudes: (empresaId: number) => json<Solicitud[]>(`/empresas/${empresaId}/solicitudes`),
+  crearSolicitud: (empresaId: number, periodo: string) =>
+    json<Solicitud>(`/empresas/${empresaId}/solicitudes`, enviar("POST", { periodo })),
+  documentosDeSolicitud: (id: number) => json<(DocumentoCliente & { id: number })[]>(`/solicitudes/${id}/documentos`),
+  renovarSolicitud: (id: number) => json<Solicitud>(`/solicitudes/${id}/renovar`, { method: "POST" }),
+  cerrarSolicitud: (id: number, cerrada: boolean) => json<Solicitud>(`/solicitudes/${id}`, enviar("PATCH", { cerrada })),
+  anotarEnvio: (id: number, canal: "whatsapp" | "correo" | "copiado") =>
+    json<Solicitud>(`/solicitudes/${id}/recordatorios`, enviar("POST", { canal })),
+  borrarSolicitud: (id: number) => pedir(`/solicitudes/${id}`, { method: "DELETE" }),
+};
+
+// Lo que usa la página PÚBLICA del cliente (sin sesión)
+export const apiCliente = {
+  solicitud: (token: string) => json<SolicitudPublica>(`/publico/solicitudes/${encodeURIComponent(token)}`),
+  subir: (token: string, xmls: File[]) => {
+    const form = new FormData();
+    for (const xml of xmls) form.append("xml", xml);
+    return json<{ resultados: ResultadoArchivo[]; documentos: DocumentoCliente[] }>(
+      `/publico/solicitudes/${encodeURIComponent(token)}/documentos`,
+      { method: "POST", body: form }
+    );
+  },
 };

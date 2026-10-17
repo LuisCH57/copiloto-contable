@@ -10,11 +10,13 @@ export type Ruta =
   | { pagina: "empresa"; id: number }
   | { pagina: "conciliacion"; id: number }
   | { pagina: "equipo" }
-  | { pagina: "auditoria" };
+  | { pagina: "auditoria" }
+  | { pagina: "subir"; token: string }; // página pública del cliente (sin sesión)
 
 export function leerRuta(hash: string): Ruta {
   const [, seccion, id] = hash.replace(/^#/, "").split("/");
   const numero = Number(id);
+  if (seccion === "subir" && id) return { pagina: "subir", token: id };
   if (seccion === "empresas" && Number.isInteger(numero) && numero > 0) return { pagina: "empresa", id: numero };
   if (seccion === "conciliaciones" && Number.isInteger(numero) && numero > 0) return { pagina: "conciliacion", id: numero };
   if (seccion === "equipo") return { pagina: "equipo" };
@@ -32,6 +34,8 @@ export function enlace(ruta: Ruta): string {
       return "#/equipo";
     case "auditoria":
       return "#/auditoria";
+    case "subir":
+      return `#/subir/${ruta.token}`;
     default:
       return "#/empresas";
   }

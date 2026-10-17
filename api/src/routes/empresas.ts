@@ -5,14 +5,21 @@ import { Router } from "express";
 import { esRucValido } from "motor-conciliacion";
 import { auditar, conEstudio } from "../db.ts";
 import { requireAuth } from "../middleware/auth.ts";
-import { esViolacionUnica, idDeRuta, texto } from "../validacion.ts";
+import { esViolacionUnica, idDeRuta, PATRON_EMAIL, texto } from "../validacion.ts";
 
 const router = Router();
 router.use(requireAuth);
 
 const COLUMNAS = `
   e.id, e.ruc, e.razon_social AS "razonSocial", e.activa, e.creado_en AS "creadoEn",
-  (SELECT max(c.periodo) FROM conciliaciones c WHERE c.empresa_id = e.id) AS "ultimoPeriodo"`;
+  e.contacto, e.celular, e.correo,
+  (SELECT max(c.periodo) FROM conciliaciones c WHERE c.empresa_id = e.id) AS "ultimoPeriodo",
+  -- El último pedido de comprobantes y cuántos llegaron (para saber a quién recordar)
+  (SELECT json_build_object(
+            'periodo', s.periodo, 'creadoEn', s.creado_en, 'cerrada', s.cerrada,
+            'documentos', (SELECT count(*) FROM documentos d WHERE d.solicitud_id = s.id),
+            'ultimoRecordatorio', s.ultimo_recordatorio)
+   FROM solicitudes s WHERE s.empresa_id = e.id ORDER BY s.periodo DESC LIMIT 1) AS "ultimaSolicitud"`;
 
 function validar(cuerpo: unknown) {
   const ruc = texto(cuerpo, "ruc");
@@ -87,6 +94,34 @@ router.put("/:id", async (req, res) => {
     );
     if (!rows[0]) return undefined;
     await auditar(cliente, estudioId, usuarioId, "empresa_actualizada", { id });
+    return (await cliente.query(`SELECT ${COLUMNAS} FROM empresas e WHERE e.id = $1`, [id])).rows[0];
+  });
+  if (!empresa) return res.status(404).json({ error: "Empresa no encontrada." });
+  res.json(empresa);
+});
+
+// PATCH /api/empresas/:id/contacto { contacto, celular, correo }: a quién se le piden los comprobantes
+router.patch("/:id/contacto", async (req, res) => {
+  const { estudioId, usuarioId } = req.sesion!;
+  const id = idDeRuta(req.params.id);
+  if (!id) return res.status(400).json({ error: "El id no es válido." });
+
+  const contacto = texto(req.body, "contacto");
+  const celular = texto(req.body, "celular").replace(/[\s-]/g, "").replace(/^\+?51/, "");
+  const correo = texto(req.body, "correo").toLowerCase();
+  const errores: string[] = [];
+  if (contacto.length > 100) errores.push("El nombre del contacto puede tener hasta 100 caracteres.");
+  if (celular && !/^9\d{8}$/.test(celular)) errores.push("El celular debe tener 9 dígitos y empezar con 9.");
+  if (correo && (!PATRON_EMAIL.test(correo) || correo.length > 200)) errores.push("El correo no es válido.");
+  if (errores.length > 0) return res.status(400).json({ error: "Datos no válidos.", detalles: errores });
+
+  const empresa = await conEstudio(estudioId, async (cliente) => {
+    const { rowCount } = await cliente.query(
+      "UPDATE empresas SET contacto = $1, celular = $2, correo = $3 WHERE id = $4",
+      [contacto || null, celular || null, correo || null, id]
+    );
+    if (rowCount === 0) return undefined;
+    await auditar(cliente, estudioId, usuarioId, "contacto_actualizado", { id });
     return (await cliente.query(`SELECT ${COLUMNAS} FROM empresas e WHERE e.id = $1`, [id])).rows[0];
   });
   if (!empresa) return res.status(404).json({ error: "Empresa no encontrada." });

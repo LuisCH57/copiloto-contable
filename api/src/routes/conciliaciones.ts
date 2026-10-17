@@ -1,8 +1,9 @@
 // ==========================================================
 // Conciliaciones: subir los archivos de un mes, conciliar y revisar.
 //
-// Privacidad: los archivos subidos se procesan EN MEMORIA y no se guardan.
-// Solo se guardan los hallazgos (lo mínimo necesario para trabajar).
+// Privacidad: los archivos que sube el CONTADOR se procesan EN MEMORIA y no
+// se guardan; solo se guardan los hallazgos. Los XML que sube el CLIENTE con
+// su enlace sí se guardan (tabla documentos) hasta que el contador los usa.
 // ==========================================================
 import { Router } from "express";
 import multer from "multer";
@@ -53,7 +54,8 @@ const COLUMNAS_HALLAZGO = `
   explicacion, accion, revisado`;
 
 // ----------------------------------------------------------
-// POST /api/empresas/:id/conciliaciones (multipart: periodo, propuesta, xml[])
+// POST /api/empresas/:id/conciliaciones
+// multipart: periodo, propuesta, xml[] y documentosCliente ("si" para sumar los XML que subió el cliente)
 // ----------------------------------------------------------
 router.post("/empresas/:id/conciliaciones", subida, async (req, res) => {
   const { estudioId, usuarioId } = req.sesion!;
@@ -62,6 +64,7 @@ router.post("/empresas/:id/conciliaciones", subida, async (req, res) => {
   const archivos = (req.files ?? {}) as ArchivosSubidos;
   const archivoPropuesta = archivos.propuesta?.[0];
   const archivosXml = archivos.xml ?? [];
+  const usarDocumentosCliente = texto(req.body, "documentosCliente") === "si";
 
   if (!empresaId) return res.status(400).json({ error: "El id de la empresa no es válido." });
   if (!/^20\d{2}(0[1-9]|1[0-2])$/.test(periodo)) {
@@ -94,6 +97,24 @@ router.post("/empresas/:id/conciliaciones", subida, async (req, res) => {
     const empresa = await cliente.query<{ ruc: string }>("SELECT ruc FROM empresas WHERE id = $1", [empresaId]);
     const ruc = empresa.rows[0]?.ruc;
     if (!ruc) return null; // no existe o es de otro estudio
+
+    // Los XML que el cliente subió con su enlace para este mes
+    let xmlCliente = 0;
+    if (usarDocumentosCliente) {
+      const documentos = await cliente.query<{ archivo: string; contenido: string }>(
+        `SELECT d.archivo, d.contenido FROM documentos d JOIN solicitudes s ON s.id = d.solicitud_id
+         WHERE s.empresa_id = $1 AND s.periodo = $2`,
+        [empresaId, periodo]
+      );
+      for (const d of documentos.rows) {
+        try {
+          xmls.push(leerComprobanteXml(d.contenido, `${d.archivo} (subido por el cliente)`));
+          xmlCliente++;
+        } catch (error) {
+          archivosConError.push((error as Error).message);
+        }
+      }
+    }
 
     const conciliacion = conciliar(propuesta, xmls, { rucCliente: ruc, periodo });
     const { resumen } = conciliacion;
@@ -129,7 +150,7 @@ router.post("/empresas/:id/conciliaciones", subida, async (req, res) => {
     );
 
     await auditar(cliente, estudioId, usuarioId, "conciliacion_creada", {
-      empresaId, periodo, xml: archivosXml.length, conErrores: archivosConError.length,
+      empresaId, periodo, xml: archivosXml.length + xmlCliente, xmlCliente, conErrores: archivosConError.length,
     });
     return { id: conciliacionId, empresaId, periodo, resumen, archivosConError };
   });

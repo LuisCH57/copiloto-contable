@@ -111,6 +111,60 @@ CREATE TABLE IF NOT EXISTS auditoria (
   creado_en   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ----------------------------------------------------------
+-- FASE 4: el cliente sube sus comprobantes con un enlace
+-- ----------------------------------------------------------
+
+-- Datos de contacto del cliente para enviarle el enlace y los recordatorios.
+-- (ADD COLUMN IF NOT EXISTS: el script se puede volver a ejecutar en una base que ya existe)
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS contacto TEXT CHECK (length(contacto) <= 100);
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS celular  TEXT CHECK (celular ~ '^9[0-9]{8}$');
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS correo   TEXT CHECK (length(correo) <= 200);
+
+-- Una "solicitud" pide al cliente los comprobantes de UN mes.
+-- El enlace NO se guarda: se calcula con una firma secreta (HMAC) a partir del id y del "sello".
+-- Cambiar el sello invalida el enlace anterior (por ejemplo, si se envió a la persona equivocada).
+CREATE TABLE IF NOT EXISTS solicitudes (
+  id                   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  estudio_id           INTEGER NOT NULL,
+  empresa_id           INTEGER NOT NULL,
+  periodo              CHAR(6) NOT NULL CHECK (periodo ~ '^20[0-9]{2}(0[1-9]|1[0-2])$'),
+  sello                TEXT NOT NULL,
+  vence_en             TIMESTAMPTZ NOT NULL,
+  cerrada              BOOLEAN NOT NULL DEFAULT false,
+  recordatorios        INTEGER NOT NULL DEFAULT 0,
+  ultimo_recordatorio  TIMESTAMPTZ,
+  creado_por           INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_en            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  FOREIGN KEY (empresa_id, estudio_id) REFERENCES empresas(id, estudio_id) ON DELETE CASCADE,
+  UNIQUE (empresa_id, periodo), -- un solo enlace por empresa y mes
+  UNIQUE (id, estudio_id)
+);
+
+-- Los XML que sube el cliente. Se guarda el archivo (lo necesita la conciliación)
+-- y unos datos leídos de él para mostrarlos sin volver a leer el XML.
+CREATE TABLE IF NOT EXISTS documentos (
+  id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  estudio_id     INTEGER NOT NULL,
+  solicitud_id   INTEGER NOT NULL,
+  clave          TEXT NOT NULL,
+  archivo        TEXT NOT NULL,
+  contenido      TEXT NOT NULL,
+  ruc_emisor     TEXT NOT NULL,
+  nombre_emisor  TEXT NOT NULL,
+  tipo           TEXT NOT NULL,
+  serie          TEXT NOT NULL,
+  numero         TEXT NOT NULL,
+  fecha_emision  DATE NOT NULL,
+  moneda         TEXT NOT NULL,
+  total          BIGINT NOT NULL, -- céntimos
+  subido_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  FOREIGN KEY (solicitud_id, estudio_id) REFERENCES solicitudes(id, estudio_id) ON DELETE CASCADE,
+  UNIQUE (solicitud_id, clave) -- el mismo comprobante no se guarda dos veces
+);
+
+CREATE INDEX IF NOT EXISTS documentos_por_solicitud ON documentos (solicitud_id, subido_en DESC);
+
 CREATE INDEX IF NOT EXISTS conciliaciones_por_empresa ON conciliaciones (estudio_id, empresa_id, periodo);
 CREATE INDEX IF NOT EXISTS hallazgos_por_conciliacion ON hallazgos (conciliacion_id);
 CREATE INDEX IF NOT EXISTS auditoria_por_estudio ON auditoria (estudio_id, creado_en DESC);
@@ -118,7 +172,7 @@ CREATE INDEX IF NOT EXISTS auditoria_por_estudio ON auditoria (estudio_id, cread
 -- ----------------------------------------------------------
 -- Permisos y políticas de aislamiento
 -- ----------------------------------------------------------
-GRANT SELECT, INSERT, UPDATE, DELETE ON estudios, usuarios, empresas, conciliaciones, hallazgos, auditoria TO copiloto_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON estudios, usuarios, empresas, conciliaciones, hallazgos, auditoria, solicitudes, documentos TO copiloto_app;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO copiloto_app;
 
 ALTER TABLE estudios       ENABLE ROW LEVEL SECURITY;
@@ -127,6 +181,8 @@ ALTER TABLE empresas       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conciliaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hallazgos      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auditoria      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE solicitudes    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documentos     ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS aislamiento ON estudios;
 CREATE POLICY aislamiento ON estudios TO copiloto_app
@@ -150,4 +206,12 @@ CREATE POLICY aislamiento ON hallazgos TO copiloto_app
 
 DROP POLICY IF EXISTS aislamiento ON auditoria;
 CREATE POLICY aislamiento ON auditoria TO copiloto_app
+  USING (estudio_id = estudio_actual()) WITH CHECK (estudio_id = estudio_actual());
+
+DROP POLICY IF EXISTS aislamiento ON solicitudes;
+CREATE POLICY aislamiento ON solicitudes TO copiloto_app
+  USING (estudio_id = estudio_actual()) WITH CHECK (estudio_id = estudio_actual());
+
+DROP POLICY IF EXISTS aislamiento ON documentos;
+CREATE POLICY aislamiento ON documentos TO copiloto_app
   USING (estudio_id = estudio_actual()) WITH CHECK (estudio_id = estudio_actual());

@@ -1,17 +1,21 @@
 // Una empresa: subir los archivos del mes y ver su historial de conciliaciones
-import { useState, type DragEvent, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { api } from "../api.ts";
 import { Cargando, MensajeError } from "../components/Comunes.tsx";
-import type { Empresa as TipoEmpresa } from "../types.ts";
+import PedirComprobantes from "../components/PedirComprobantes.tsx";
+import ZonaXml from "../components/ZonaXml.tsx";
+import type { Sesion, Solicitud, Empresa as TipoEmpresa } from "../types.ts";
 import { fechaHora, mesAnterior, nombrePeriodo, soles } from "../utils/formato.ts";
+import { haceCuanto } from "../utils/mensajes.ts";
 import { enlace, ir } from "../utils/ruta.ts";
 import { useFetch } from "../utils/useFetch.ts";
 
 const MAXIMO_XML = 2000; // el mismo límite que la API
 
-export default function Empresa({ id }: { id: number }) {
+export default function Empresa({ id, sesion }: { id: number; sesion: Sesion }) {
   const empresa = useFetch(() => api.empresa(id), `empresa-${id}`);
   const historial = useFetch(() => api.conciliaciones(id), `historial-${id}`);
+  const solicitudes = useFetch(() => api.solicitudes(id), `solicitudes-${id}`);
   const datos = empresa.data;
 
   return (
@@ -30,7 +34,19 @@ export default function Empresa({ id }: { id: number }) {
             <BotonActivar empresa={datos} alCambiar={empresa.reload} />
           </div>
 
-          {datos.activa && <NuevaConciliacion empresaId={id} />}
+          {datos.activa && (
+            <>
+              <PedirComprobantes
+                empresa={datos}
+                sesion={sesion}
+                solicitudes={solicitudes.data ?? []}
+                error={solicitudes.error}
+                alCambiarSolicitudes={solicitudes.reload}
+                alCambiarEmpresa={empresa.reload}
+              />
+              <NuevaConciliacion empresaId={id} solicitudes={solicitudes.data ?? []} />
+            </>
+          )}
 
           <h2 className="subtitulo">Historial</h2>
           <MensajeError error={historial.error} />
@@ -96,56 +112,17 @@ function BotonActivar({ empresa, alCambiar }: { empresa: TipoEmpresa; alCambiar:
 // ----------------------------------------------------------
 // Formulario para conciliar un mes
 // ----------------------------------------------------------
-
-// Al soltar una CARPETA, el navegador entrega "entradas" que hay que recorrer
-type Entrada = { isFile: boolean; isDirectory: boolean; file?: (ok: (f: File) => void, error: () => void) => void; createReader?: () => { readEntries: (ok: (e: Entrada[]) => void) => void } };
-
-async function archivosDeEntrada(entrada: Entrada): Promise<File[]> {
-  if (entrada.isFile && entrada.file) {
-    return [await new Promise<File>((ok, error) => entrada.file!(ok, error))];
-  }
-  if (entrada.isDirectory && entrada.createReader) {
-    const lector = entrada.createReader();
-    const todas: Entrada[] = [];
-    // readEntries devuelve los archivos por tandas: se llama hasta que no quede nada
-    for (;;) {
-      const tanda = await new Promise<Entrada[]>((ok) => lector.readEntries(ok));
-      if (tanda.length === 0) break;
-      todas.push(...tanda);
-    }
-    return (await Promise.all(todas.map(archivosDeEntrada))).flat();
-  }
-  return [];
-}
-
-function soloXml(archivos: File[]): File[] {
-  return archivos.filter((a) => a.name.toLowerCase().endsWith(".xml"));
-}
-
-function NuevaConciliacion({ empresaId }: { empresaId: number }) {
+function NuevaConciliacion({ empresaId, solicitudes }: { empresaId: number; solicitudes: Solicitud[] }) {
   const [mes, setMes] = useState(mesAnterior()); // "AAAA-MM"
   const [propuesta, setPropuesta] = useState<File | null>(null);
   const [xmls, setXmls] = useState<File[]>([]);
-  const [arrastrando, setArrastrando] = useState(false);
+  const [usarCliente, setUsarCliente] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [enviando, setEnviando] = useState(false);
 
-  function agregarXml(nuevos: File[]) {
-    // Evita repetir el mismo archivo si se agrega dos veces
-    setXmls((actuales) => {
-      const nombres = new Set(actuales.map((a) => `${a.name}-${a.size}`));
-      return [...actuales, ...soloXml(nuevos).filter((a) => !nombres.has(`${a.name}-${a.size}`))];
-    });
-  }
-
-  async function soltar(evento: DragEvent<HTMLDivElement>) {
-    evento.preventDefault();
-    setArrastrando(false);
-    const entradas = Array.from(evento.dataTransfer.items)
-      .map((item) => item.webkitGetAsEntry?.() as Entrada | null)
-      .filter((e): e is Entrada => e !== null);
-    agregarXml(entradas.length > 0 ? (await Promise.all(entradas.map(archivosDeEntrada))).flat() : Array.from(evento.dataTransfer.files));
-  }
+  const periodo = mes.replace("-", "");
+  // Lo que el cliente ya subió con su enlace para este mes
+  const delCliente = solicitudes.find((s) => s.periodo === periodo && s.documentos > 0);
 
   async function conciliar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -157,7 +134,7 @@ function NuevaConciliacion({ empresaId }: { empresaId: number }) {
     setEnviando(true);
     setError(null);
     try {
-      const resultado = await api.conciliar(empresaId, mes.replace("-", ""), propuesta, xmls);
+      const resultado = await api.conciliar(empresaId, periodo, propuesta, xmls, Boolean(delCliente && usarCliente));
       ir({ pagina: "conciliacion", id: resultado.id });
     } catch (err) {
       setError(err);
@@ -180,45 +157,31 @@ function NuevaConciliacion({ empresaId }: { empresaId: number }) {
         </label>
       </div>
 
-      <div
-        className={`zona-archivos${arrastrando ? " arrastrando" : ""}`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setArrastrando(true);
-        }}
-        onDragLeave={() => setArrastrando(false)}
-        onDrop={soltar}
-      >
-        <p><strong>Arrastra aquí la carpeta con los XML</strong> de las compras del cliente</p>
-        <p className="tenue">o</p>
-        <div className="acciones-centro">
-          <label className="boton">
-            Elegir archivos XML
-            <input type="file" accept=".xml" multiple className="oculto" onChange={(e) => agregarXml(Array.from(e.target.files ?? []))} />
-          </label>
-          <label className="boton">
-            Elegir una carpeta
-            <input
-              type="file"
-              className="oculto"
-              // webkitdirectory: permite elegir una carpeta completa (no está en los tipos de React)
-              {...({ webkitdirectory: "" } as Record<string, string>)}
-              onChange={(e) => agregarXml(Array.from(e.target.files ?? []))}
-            />
-          </label>
-        </div>
-        <p className="contador-xml" aria-live="polite">
-          {xmls.length === 0 ? "Ningún XML seleccionado" : `${xmls.length} XML listos`}
-          {xmls.length > 0 && (
-            <button type="button" className="boton-enlace" onClick={() => setXmls([])}>Quitar todos</button>
-          )}
-        </p>
-      </div>
+      {delCliente && (
+        <label className="casilla casilla-destacada">
+          <input type="checkbox" checked={usarCliente} onChange={(e) => setUsarCliente(e.target.checked)} />
+          <span>
+            Incluir los <strong>{delCliente.documentos} XML que subió el cliente</strong> con su enlace
+            {delCliente.ultimoDocumento && <span className="tenue"> (el último, {haceCuanto(delCliente.ultimoDocumento)})</span>}
+          </span>
+        </label>
+      )}
+
+      <ZonaXml
+        archivos={xmls}
+        alCambiar={setXmls}
+        titulo={
+          <>
+            <strong>Arrastra aquí la carpeta con los XML</strong> de las compras del cliente
+            {delCliente && " (solo si tienes otros además de los que él subió)"}
+          </>
+        }
+      />
 
       <MensajeError error={error} />
       <div className="acciones">
         <button type="submit" className="boton boton-principal" disabled={enviando || !propuesta}>
-          {enviando ? "Conciliando…" : `Conciliar ${nombrePeriodo(mes.replace("-", ""))}`}
+          {enviando ? "Conciliando…" : `Conciliar ${nombrePeriodo(periodo)}`}
         </button>
       </div>
     </form>
