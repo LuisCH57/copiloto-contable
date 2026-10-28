@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   respaldo:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Instalar pg_dump 18 (sirve para servidores PostgreSQL 18 o anteriores)
         run: |
